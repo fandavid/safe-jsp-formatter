@@ -5,6 +5,10 @@
   "version": "0.0.1",
   "publisher": "davidfan",
   "icon": "icon.png",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/fandavid/safe-jsp-formatter.git"
+  },
   "engines": {
     "vscode": "^1.108.0"
   },
