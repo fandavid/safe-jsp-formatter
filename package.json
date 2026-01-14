@@ -3,6 +3,8 @@
   "displayName": "Safe JSP Formatter",
   "description": "The only non-destructive formatter for JSP scriptlets.",
   "version": "0.0.1",
+  "publisher": "davidfan",
+  "icon": "icon.png",
   "engines": {
     "vscode": "^1.108.0"
   },
