@@ -2,7 +2,7 @@
   "name": "safe-jsp-formatter",
   "displayName": "Safe JSP Formatter",
   "description": "The only non-destructive formatter for JSP scriptlets.",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "preview": true,
   "publisher": "davidfan",
   "icon": "icon.png",
@@ -11,7 +11,7 @@
     "url": "https://github.com/fandavid/safe-jsp-formatter.git"
   },
   "engines": {
-    "vscode": "^1.108.0"
+    "vscode": "^1.104.0"
   },
   "license": "MIT",
   "keywords": [
@@ -65,7 +65,7 @@
     "@types/js-beautify": "^1.14.3",
     "@types/mocha": "^10.0.10",
     "@types/node": "22.x",
-    "@types/vscode": "^1.108.0",
+    "@types/vscode": "^1.104.0",
     "@vscode/test-cli": "^0.0.12",
     "@vscode/test-electron": "^2.5.2",
     "esbuild": "^0.27.2",
