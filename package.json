@@ -2,7 +2,7 @@
   "name": "safe-jsp-formatter",
   "displayName": "Safe JSP Formatter",
   "description": "The only non-destructive formatter for JSP scriptlets.",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "preview": true,
   "publisher": "davidfan",
   "icon": "icon.png",
@@ -59,7 +59,8 @@
     "pretest": "npm run compile-tests && npm run compile && npm run lint",
     "check-types": "tsc --noEmit",
     "lint": "eslint src",
-    "test": "vscode-test"
+    "test": "vscode-test",
+    "test:unit": "npm run compile-tests && npx mocha --ui tdd out/test/formatter.test.js"
   },
   "devDependencies": {
     "@types/js-beautify": "^1.14.3",

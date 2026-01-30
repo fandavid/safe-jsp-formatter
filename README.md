@@ -12,8 +12,8 @@ Traditional HTML formatters often break JSP-specific tags (like Scriptlets `<% .
 This extension uses a specialized **placeholder mechanism** to ensure JSP syntax is perfectly preserved while beautifying both the HTML structure and the Java code within scriptlets.
 
 ### ✨ Key Features
-- ✅ **Preserves JSP Tags** - Directives, scriptlets, expressions, and comments remain completely intact.
-- ✅ **Beautifies Java Code** - Java code inside scriptlets is automatically indented and formatted.
+- ✅ **Preserves JSP Tags** - Directives, declarations (`<%!`), scriptlets, expressions, and comments remain completely intact.
+- ✅ **Beautifies Java Code** - Java code inside scriptlets is automatically indented and formatted (Declarations are kept untouched).
 - ✅ **Prevents Attribute Breaks** - Ensures JSP expressions inside HTML attributes stay on the same line.
 - ✅ **Clean HTML Structure** - Provides precise indentation for HTML elements.
 - ✅ **Idempotent** - Multiple formatting passes produce consistent results.
