@@ -2,7 +2,7 @@
   "name": "safe-jsp-formatter",
   "displayName": "Safe JSP Formatter",
   "description": "The only non-destructive formatter for JSP scriptlets.",
-  "version": "0.0.5",
+  "version": "0.1.2",
   "preview": true,
   "publisher": "davidfan",
   "icon": "icon.png",
@@ -76,6 +76,8 @@
     "typescript-eslint": "^8.52.0"
   },
   "dependencies": {
-    "js-beautify": "^1.15.4"
+    "js-beautify": "^1.15.4",
+    "prettier": "^3.8.1",
+    "prettier-plugin-java": "^2.8.1"
   }
 }

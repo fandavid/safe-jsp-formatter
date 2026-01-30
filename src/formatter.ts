@@ -1,77 +1,143 @@
 import * as beautify from "js-beautify";
+import * as prettier from "prettier";
+// @ts-ignore
+const javaPlugin = require("prettier-plugin-java");
 
-export function formatJsp(
+export async function formatJsp(
   text: string,
   options: { tabSize: number; insertSpaces: boolean },
-): string {
+): Promise<string> {
   const placeholders: string[] = [];
 
   // Use a unique marker
   const marker = `ZJSP${Math.random().toString(36).substring(2, 6).toUpperCase()}Z`;
 
   // 1. Identify and Pre-format JSP Tags
+  // Pre-process: Normalize JSP tags (e.g. <% ! -> <%!, <% = -> <%=)
+  // 此步驟解決 error_v1.jsp 這類因標籤寫法不標準導致的格式化問題
+  let processedText = text
+    .replace(/<%\s+!/g, "<%!")
+    .replace(/<%\s+=/g, "<%=")
+    .replace(/<%\s+@/g, "<%@");
+
   const jspPattern = /<%[\s\S]*?%>/g;
+  const matches: {
+    fullMatch: string;
+    index: number;
+    length: number;
+    formatted: string;
+  }[] = [];
 
-  let processedText = text.replace(jspPattern, (match) => {
-    let finalContent = match;
+  // 使用 while loop 和 exec 來收集所有匹配項
+  let match;
+  while ((match = jspPattern.exec(processedText)) !== null) {
+    matches.push({
+      fullMatch: match[0],
+      index: match.index,
+      length: match[0].length,
+      formatted: match[0], // Pre-fill with original, will be updated
+    });
+  }
 
-    // Format Java Scriptlets (excluding directives <%@, expressions <%=, declarations <%!, and comments <%--)
-    // 注意：<%! 是 JSP 宣告區塊，包含方法/變數宣告，不應被格式化處理
-    if (match.startsWith("<%") && !["@", "=", "-", "!"].includes(match[2])) {
-      // 取出 <% 和 %> 之間的內容（不要 trim，保留縮排結構）
-      let innerCode = match.substring(2, match.length - 2);
-      // 只移除開頭的第一個換行（如果有的話）
-      if (innerCode.startsWith("\n")) {
-        innerCode = innerCode.substring(1);
-      }
-      // 只移除結尾的最後一個換行（如果有的話）
-      if (innerCode.endsWith("\n")) {
-        innerCode = innerCode.substring(0, innerCode.length - 1);
-      }
+  // 並行處理所有 JSP 區塊的格式化
+  await Promise.all(
+    matches.map(async (item) => {
+      const matchText = item.fullMatch;
 
-      // 保守策略：只清理多餘空行，保留原本的換行結構
-      // 不使用 js-beautify，因為它是給 JavaScript 用的，無法正確處理 Java 語法
-      const lines = innerCode.split("\n");
+      // Detect tag type
+      const tagChar = matchText.length > 2 ? matchText[2] : "";
+      const isDirective = tagChar === "@";
+      // Check for <%--
+      const isComment = tagChar === "-" && matchText[3] === "-";
+      const isExpression = tagChar === "=";
+      const isDeclaration = tagChar === "!";
+      const isScriptlet =
+        !isDirective && !isComment && !isExpression && !isDeclaration;
 
-      // 計算最小縮排（忽略空行），作為基準縮排
-      const nonEmptyLines = lines.filter((line) => line.trim() !== "");
-      const minIndent =
-        nonEmptyLines.length > 0
-          ? Math.min(
-              ...nonEmptyLines.map((line) => {
-                const match = line.match(/^(\s*)/);
-                return match ? match[1].length : 0;
-              }),
-            )
-          : 0;
+      // Format Java Scriptlets AND Declarations
+      if (isScriptlet || isDeclaration) {
+        const headerLength = isDeclaration ? 3 : 2; // <%! vs <%
+        let innerCode = matchText.substring(headerLength, matchText.length - 2);
 
-      // 移除基準縮排，並加上新的基礎縮排
-      const baseIndent = options.insertSpaces
-        ? " ".repeat(options.tabSize)
-        : "\t";
-      const cleanedLines = lines
-        .map((line) => line.trimEnd()) // 移除行尾空白
-        .filter((line, index, arr) => {
-          // 移除連續空行（保留最多一行空行）
-          if (line.trim() === "" && index > 0 && arr[index - 1].trim() === "") {
-            return false;
+        // 嘗試使用 Prettier 進行 Google Java Style 格式化
+        try {
+          const formattedJava = await tryFormatJava(
+            innerCode,
+            isDeclaration,
+            options.tabSize,
+            options.insertSpaces,
+          );
+          const startTag = isDeclaration ? "<%!" : "<%";
+          item.formatted = `${startTag}\n${formattedJava}\n%>`;
+        } catch (e) {
+          // Fallback to safe indentation-only mode
+          if (innerCode.startsWith("\n")) {
+            innerCode = innerCode.substring(1);
           }
-          return true;
-        })
-        .map((line) => {
-          if (line.trim() === "") return "";
-          // 移除基準縮排，保留相對縮排
-          const stripped = line.substring(minIndent);
-          return baseIndent + stripped;
-        });
+          if (innerCode.endsWith("\n")) {
+            innerCode = innerCode.substring(0, innerCode.length - 1);
+          }
 
-      finalContent = `<%\n${cleanedLines.join("\n")}\n%>`;
-    }
+          const lines = innerCode.split("\n");
+          const nonEmptyLines = lines.filter((line) => line.trim() !== "");
+          const minIndent =
+            nonEmptyLines.length > 0
+              ? Math.min(
+                  ...nonEmptyLines.map((line) => {
+                    const match = line.match(/^(\s*)/);
+                    return match ? match[1].length : 0;
+                  }),
+                )
+              : 0;
 
+          const baseIndent = options.insertSpaces
+            ? " ".repeat(options.tabSize)
+            : "\t";
+          const cleanedLines = lines
+            .map((line) => line.trimEnd())
+            .filter((line, index, arr) => {
+              if (
+                line.trim() === "" &&
+                index > 0 &&
+                arr[index - 1].trim() === ""
+              ) {
+                return false;
+              }
+              return true;
+            })
+            .map((line) => {
+              if (line.trim() === "") {
+                return "";
+              }
+              const stripped = line.substring(minIndent);
+              return baseIndent + stripped;
+            });
+
+          const startTag = isDeclaration ? "<%!" : "<%";
+          item.formatted = `${startTag}\n${cleanedLines.join("\n")}\n%>`;
+        }
+      }
+    }),
+  );
+
+  // 重組字串：使用 placeholders 機制
+  let newText = "";
+  let lastIndex = 0;
+
+  for (const item of matches) {
+    // 加回中間的 HTML
+    newText += processedText.substring(lastIndex, item.index);
+
+    // 生成 placeholder
     const placeholder = `${marker}${placeholders.length}${marker}`;
-    placeholders.push(finalContent);
-    return placeholder;
-  });
+    placeholders.push(item.formatted);
+    newText += placeholder;
+
+    lastIndex = item.index + item.length;
+  }
+  // 加回最後剩餘的部分
+  newText += processedText.substring(lastIndex);
+  processedText = newText;
 
   // 2. Format HTML
   const beautifyOptions: beautify.HTMLBeautifyOptions = {
@@ -100,7 +166,6 @@ export function formatJsp(
   }
 
   // 4. Post-processing Cleanup
-  // Force <title> to be a single line
   formattedText = formattedText.replace(
     /<title>([\s\S]*?)<\/title>/gi,
     (match, p1) => {
@@ -113,21 +178,95 @@ export function formatJsp(
   );
 
   // Ensure directives at the top stay on their own lines and aren't squashed
-  // Only match directives (<%@ ... %>), not expressions (<%=) or scriptlets (<%)
-  // Use a more specific pattern that doesn't cross into other JSP tags
   formattedText = formattedText.replace(/(<%@[^%]*%>)(?![\r\n])/g, "$1\n");
 
   // Fix mangled < script
   formattedText = formattedText.replace(/<\s+script/g, "<script");
 
-  // Fix attribute spacing
-  formattedText = formattedText.replace(
-    /(\s[a-zA-Z0-9_-]+)\s*=\s*(["'])/g,
-    "$1=$2",
-  );
-
   // Fix JSP tag mangling
   formattedText = formattedText.replace(/%\s+>/g, "%>");
 
   return formattedText;
+}
+
+async function tryFormatJava(
+  code: string,
+  isDeclaration: boolean,
+  tabSize: number,
+  insertSpaces: boolean,
+): Promise<string> {
+  const wrapperClassStart = "class Dummy {";
+  const wrapperMethodStart = "void dummy() {";
+  const wrapperEnd = "}";
+
+  // Smart Fix: 如果代碼是單行且包含 "//" 註解後面跟著 "}"，這通常意味著註解吃掉了閉合括號
+  // 將其轉換為 block comment 以修復語法錯誤
+  // e.g. "... // comment } ..." -> "... /* comment */ } ..."
+  if (code.includes("//")) {
+    code = code.replace(/\/\/([^\n]*?)}/g, "/*$1*/ }");
+  }
+
+  let wrappedCode = "";
+  if (isDeclaration) {
+    // 聲明區塊通常是類別成員 (方法/變數)，所以包在 class 中
+    wrappedCode = `${wrapperClassStart}\n${code}\n${wrapperEnd}`;
+  } else {
+    // Scriptlet 通常是語句，所以包在方法中
+    wrappedCode = `${wrapperClassStart}\n${wrapperMethodStart}\n${code}\n${wrapperEnd}\n${wrapperEnd}`;
+  }
+
+  // @ts-ignore
+  const pluginToUse = javaPlugin.default || javaPlugin;
+  const formattedWrapped = await prettier.format(wrappedCode, {
+    parser: "java",
+    plugins: [pluginToUse],
+    tabWidth: tabSize,
+    useTabs: !insertSpaces,
+    printWidth: 100,
+  });
+
+  // Unwrap code
+  let content = formattedWrapped.trim();
+
+  // Remove class wrapper
+  const firstBrace = content.indexOf("{");
+  const lastBrace = content.lastIndexOf("}");
+  if (firstBrace === -1 || lastBrace === -1) throw new Error("Unwrap failed");
+
+  content = content.substring(firstBrace + 1, lastBrace).trim();
+
+  if (!isDeclaration) {
+    // Remove method wrapper
+    const methodFirstBrace = content.indexOf("{");
+    const methodLastBrace = content.lastIndexOf("}");
+    if (methodFirstBrace === -1 || methodLastBrace === -1)
+      throw new Error("Unwrap method failed");
+
+    content = content.substring(methodFirstBrace + 1, methodLastBrace).trim();
+  }
+
+  // Remove extra indentation level added by wrapper
+  // Prettier indents everything inside class one level.
+  const lines = content.split("\n");
+  const indentStr = insertSpaces ? " ".repeat(tabSize) : "\t";
+
+  // Detect if the first non-empty line has indentation to decide stripping strategy
+  // But generally, we can just strip `tabSize` characters if they are whitespace.
+  const unindentedLines = lines.map((line) => {
+    if (line.startsWith(indentStr)) {
+      return line.substring(indentStr.length);
+    }
+    // If line doesn't start with indentStr, could be blank line or a line starting at column 0
+    return line;
+  });
+
+  // Re-add base indentation (for JSP context)
+  const baseIndent = indentStr;
+  return unindentedLines
+    .map((l) => {
+      // Don't indent blank lines
+      if (l.trim() === "") return "";
+      return baseIndent + l;
+    })
+    .join("\n");
 }
