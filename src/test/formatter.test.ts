@@ -212,4 +212,193 @@ suite("JSP Formatter Logic Tests", () => {
       "Inner method should be indented relative to try",
     );
   });
+
+  // === 針對 error.jsp 複雜情境的測試 ===
+
+  test("Should preserve JSP declaration with complete method (error.jsp scenario)", () => {
+    // 模擬 error.jsp 中的 <%! 宣告區塊，包含完整的 Java 方法
+    const input = `<%@ page language="java" pageEncoding="UTF-8" %>
+<%@ page import="org.apache.struts2.StrutsConstants" %>
+<%!
+    // 宣告輔助方法
+    private boolean isDevMode() {
+        try {
+            Dispatcher dispatcher = Dispatcher.getInstance();
+            if (dispatcher != null && dispatcher.getContainer() != null) {
+                String devModeStr = dispatcher.getContainer().getInstance(String.class, StrutsConstants.STRUTS_DEVMODE);
+                return "true".equalsIgnoreCase(devModeStr);
+            }
+        } catch (Exception e) {
+            // 無法取得時預設為 false
+        }
+        return false;
+    }
+%>
+<html></html>`;
+
+    const result = formatJsp(input, defaultOptions);
+
+    // 關鍵驗證：<%! 標籤必須保持完整，不能被拆成 <% 和 !
+    assert.ok(result.includes("<%!"), "Declaration tag <%! must be preserved");
+    assert.ok(
+      !result.includes("<%\n    !"),
+      "Declaration tag must NOT be split into <% and !",
+    );
+
+    // 驗證方法結構完整
+    assert.ok(
+      result.includes("private boolean isDevMode()"),
+      "Method signature must be preserved",
+    );
+    assert.ok(result.includes("try {"), "Try block must be preserved");
+    assert.ok(
+      result.includes("} catch (Exception e) {"),
+      "Catch block must be preserved",
+    );
+    assert.ok(
+      result.includes("return false;"),
+      "Return statement must be preserved",
+    );
+
+    // 驗證巢狀 if 結構
+    assert.ok(
+      result.includes(
+        "if (dispatcher != null && dispatcher.getContainer() != null)",
+      ),
+      "Nested if condition must be preserved",
+    );
+  });
+
+  test("Should preserve scriptlet with complex control flow (error.jsp scenario)", () => {
+    // 模擬 error.jsp 中的 <% scriptlet，包含條件判斷和方法呼叫
+    const input = `<%
+    // 取得請求的 URL
+    String requestedUrl = (String) request.getAttribute("jakarta.servlet.forward.request_uri");
+    if (requestedUrl == null) {
+        requestedUrl = request.getRequestURI();
+    }
+    // 存入 pageContext 供 EL 使用
+    pageContext.setAttribute("requestedUrl", requestedUrl);
+
+    // 正式環境：重導向至 error.html
+    if (!isDevMode()) {
+        response.sendRedirect(request.getContextPath() + "/error.html");
+        return;
+    }
+%>`;
+
+    const result = formatJsp(input, defaultOptions);
+
+    // 驗證程式碼結構保留（不應被壓縮成單行）
+    const lines = result.split("\n");
+    assert.ok(
+      lines.length > 10,
+      "Scriptlet should NOT be compressed to single line",
+    );
+
+    // 驗證關鍵程式碼存在
+    assert.ok(
+      result.includes(
+        'String requestedUrl = (String) request.getAttribute("jakarta.servlet.forward.request_uri");',
+      ),
+      "Variable declaration must be preserved",
+    );
+    assert.ok(
+      result.includes("if (requestedUrl == null)"),
+      "First if condition must be preserved",
+    );
+    assert.ok(
+      result.includes("if (!isDevMode())"),
+      "Second if condition must be preserved",
+    );
+    assert.ok(
+      result.includes("response.sendRedirect"),
+      "Method call must be preserved",
+    );
+    assert.ok(result.includes("return;"), "Return statement must be preserved");
+
+    // 驗證縮排結構：if 區塊內的程式碼應該有更深的縮排
+    const ifDevModeLine = lines.find((l: string) =>
+      l.includes("if (!isDevMode())"),
+    );
+    const sendRedirectLine = lines.find((l: string) =>
+      l.includes("response.sendRedirect"),
+    );
+
+    assert.ok(ifDevModeLine, "Should contain if (!isDevMode())");
+    assert.ok(sendRedirectLine, "Should contain response.sendRedirect");
+
+    const ifIndent = ifDevModeLine?.match(/^\s*/)?.[0].length || 0;
+    const redirectIndent = sendRedirectLine?.match(/^\s*/)?.[0].length || 0;
+
+    assert.ok(
+      redirectIndent > ifIndent,
+      "sendRedirect should be indented inside if block",
+    );
+  });
+
+  test("Should handle full error.jsp with declaration and scriptlet together", () => {
+    // 完整的 error.jsp 結構：directive + declaration + scriptlet + HTML
+    const input = `<%@ page language="java" pageEncoding="UTF-8" %>
+<%!
+    private boolean isDevMode() {
+        return true;
+    }
+%>
+<%
+    String url = request.getRequestURI();
+    if (url == null) {
+        url = "/";
+    }
+%>
+<!DOCTYPE html>
+<html>
+<head><title>Error</title></head>
+<body>
+    <h1>404 Not Found</h1>
+</body>
+</html>`;
+
+    const result = formatJsp(input, defaultOptions);
+
+    // 驗證所有區塊都完整保留
+    assert.ok(
+      result.includes('<%@ page language="java" pageEncoding="UTF-8" %>'),
+      "Directive must be preserved",
+    );
+    assert.ok(
+      result.includes("<%!"),
+      "Declaration start tag must be preserved",
+    );
+    assert.ok(
+      result.includes("private boolean isDevMode()"),
+      "Method in declaration must be preserved",
+    );
+
+    // 驗證 scriptlet
+    const scriptletMatch = result.match(
+      /<%\n[\s\S]*?String url = request\.getRequestURI\(\);[\s\S]*?%>/,
+    );
+    assert.ok(
+      scriptletMatch,
+      "Scriptlet with variable assignment must be preserved",
+    );
+
+    // 驗證 HTML 結構
+    assert.ok(result.includes("<!DOCTYPE html>"), "DOCTYPE must be preserved");
+    assert.ok(
+      result.includes("<h1>404 Not Found</h1>"),
+      "HTML content must be preserved",
+    );
+
+    // 確保 <%! 和 <% 都各自出現一次
+    const declarationCount = (result.match(/<%!/g) || []).length;
+    const scriptletCount = (result.match(/<%\n/g) || []).length;
+    assert.strictEqual(
+      declarationCount,
+      1,
+      "Should have exactly one declaration",
+    );
+    assert.strictEqual(scriptletCount, 1, "Should have exactly one scriptlet");
+  });
 });

@@ -2,7 +2,7 @@
   "name": "safe-jsp-formatter",
   "displayName": "Safe JSP Formatter",
   "description": "The only non-destructive formatter for JSP scriptlets.",
-  "version": "0.0.3",
+  "version": "0.0.5",
   "preview": true,
   "publisher": "davidfan",
   "icon": "icon.png",
