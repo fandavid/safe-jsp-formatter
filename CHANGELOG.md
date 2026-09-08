@@ -4,6 +4,14 @@ All notable changes to the "safe-jsp-formatter" extension will be documented in 
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
+## [0.1.3] - 2026-02-24
+### Added
+- **[CRITICAL]** Added Regex Scanner mechanism to safely upgrade single-line comments (`//`) to block comments (`/* ... */`) before formatting. This fundamentally prevents valid code from being commented out when lines are squashed together.
+- Added test coverage for comment scanner validation.
+
+### Removed
+- Removed the old, buggy `// ... }` string replacement hack.
+
 ## [0.1.2] - 2026-01-30
 
 ### Verified

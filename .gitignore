@@ -30,3 +30,6 @@ yarn-error.log*
 tmp/
 *.tmp
 tmp_*
+
+# Local superpowers
+.superpowers/

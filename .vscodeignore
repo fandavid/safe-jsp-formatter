@@ -12,3 +12,10 @@ vsc-extension-quickstart.md
 **/*.map
 **/*.ts
 **/.vscode-test.*
+docs/**
+tmp/**
+.superpowers/**
+*.vsix
+test_*.js
+verify_*.js
+migrate_*.js
