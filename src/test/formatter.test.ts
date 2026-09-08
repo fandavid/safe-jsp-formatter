@@ -453,4 +453,46 @@ suite("JSP Formatter Logic Tests", () => {
       "Should have space after catch",
     );
   });
+
+  // === New Optimization Edge Cases ===
+
+  test("Should NOT break JSP tag when Java string contains %>", async () => {
+    const input = `<%
+    String message = "Notice: %> symbol inside string";
+    System.out.println(message);
+%>`;
+    const result = await formatJsp(input, defaultOptions);
+    assert.ok(result.includes('String message = "Notice: %> symbol inside string";'));
+    assert.ok(result.includes("System.out.println(message);"));
+    assert.strictEqual((result.match(/<%/g) || []).length, 1);
+    assert.strictEqual((result.match(/%>/g) || []).length, 2);
+  });
+
+  test("Should preserve EL expression inside HTML attributes without inserting spaces", async () => {
+    const input = '<div class="${active ? "btn-primary" : "btn-secondary"}"><span>${user.name}</span></div>';
+    const result = await formatJsp(input, defaultOptions);
+    assert.ok(
+      result.includes('class="${active ? "btn-primary" : "btn-secondary"}"'),
+      "EL expression inside attribute must preserve exact spacing",
+    );
+    assert.ok(result.includes("<span>${user.name}</span>"));
+  });
+
+  test("Should align closing %> with outer HTML indentation", async () => {
+    const input = `<div>
+    <%
+    if (true) {
+        doSomething();
+    }
+    %>
+</div>`;
+    const result = await formatJsp(input, defaultOptions);
+    const lines = result.split("\n");
+    const closingTagLine = lines.find((l) => l.trim() === "%>");
+    assert.ok(closingTagLine, "Must find closing tag line");
+    assert.ok(
+      closingTagLine.startsWith("    "),
+      `Closing tag should have 4 spaces indent, got: "${closingTagLine}"`,
+    );
+  });
 });
