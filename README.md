@@ -12,12 +12,13 @@ Traditional HTML formatters often break JSP-specific tags (like Scriptlets `<% .
 This extension uses a specialized **placeholder mechanism** to ensure JSP syntax is perfectly preserved while beautifying both the HTML structure and the Java code within scriptlets.
 
 ### ✨ Key Features
-- ✅ **Preserves JSP Tags** - Directives, declarations (`<%!`), scriptlets, expressions, and comments remain completely intact.
-- ✅ **Beautifies Java Code** - Java code inside scriptlets is automatically indented and formatted (Declarations are kept untouched).
-- ✅ **Prevents Attribute Breaks** - Ensures JSP expressions inside HTML attributes stay on the same line.
-- ✅ **Clean HTML Structure** - Provides precise indentation for HTML elements.
-- ✅ **Idempotent** - Multiple formatting passes produce consistent results.
-- ✅ **Zero Configuration** - Works perfectly out of the box.
+- ✅ **Preserves JSP Tags & EL Expressions** - Directives, declarations (`<%!`), scriptlets, expressions (`<%=`), comments (`<%--`), and EL expressions (`${...}`) remain completely intact.
+- ✅ **Context-Aware Lexer** - Robust syntax scanning that handles string literals containing `%>` (e.g. `String s = "test %> test";`) without tag truncation.
+- ✅ **Beautifies Java Code** - Java code inside scriptlets and declarations is formatted with Google Java Style (Prettier), with a graceful fallback to safe indentation mode for incomplete or legacy code.
+- ✅ **Safe Comment Handling** - Automatically isolates trailing braces from single-line comments so legacy squashed code formats cleanly.
+- ✅ **Prevents Attribute Breaks** - Ensures JSP expressions and EL expressions inside HTML attributes preserve exact spacing and stay intact.
+- ✅ **Clean HTML Structure & Proper Alignment** - Precise indentation for HTML elements, with nested JSP tags and closing `%>` aligned to surrounding HTML.
+- ✅ **Configurable** - Works out of the box with sensible defaults, while offering granular settings to customize Java and HTML formatting.
 
 ## 🚀 Usage
 
@@ -51,6 +52,15 @@ This extension uses a specialized **placeholder mechanism** to ensure JSP syntax
   </head>
 </html>
 ```
+
+## ⚙️ Extension Settings
+
+This extension contributes the following settings:
+
+- `safeJspFormatter.enableJavaFormatting`: Enable Prettier Google Java Style formatting inside JSP scriptlets and declarations (default: `true`).
+- `safeJspFormatter.enableHtmlFormatting`: Enable HTML structure beautification via `js-beautify` (default: `true`).
+- `safeJspFormatter.printWidth`: Maximum line width for formatted Java code inside JSP (default: `100`).
+- `safeJspFormatter.htmlOptions`: Custom options object passed directly to `js-beautify` (default: `{}`).
 
 ## 🔧 Supported File Types
 - `.jsp` - Java Server Pages
