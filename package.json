@@ -45,7 +45,32 @@
           "application/x-jsp"
         ]
       }
-    ]
+    ],
+    "configuration": {
+      "title": "Safe JSP Formatter",
+      "properties": {
+        "safeJspFormatter.enableJavaFormatting": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable Prettier Google Java Style formatting inside JSP scriptlets and declarations."
+        },
+        "safeJspFormatter.enableHtmlFormatting": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable HTML beautification via js-beautify."
+        },
+        "safeJspFormatter.printWidth": {
+          "type": "number",
+          "default": 100,
+          "description": "Maximum line width for formatted Java code inside JSP."
+        },
+        "safeJspFormatter.htmlOptions": {
+          "type": "object",
+          "default": {},
+          "description": "Custom options passed to js-beautify for HTML formatting."
+        }
+      }
+    }
   },
   "scripts": {
     "vscode:prepublish": "npm run package",

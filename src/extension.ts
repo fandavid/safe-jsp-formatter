@@ -1,6 +1,18 @@
 import * as vscode from "vscode";
-import { formatJsp } from "./formatter";
+import { formatJsp, FormatOptions } from "./formatter";
 import * as packageJson from "../package.json";
+
+function getFormatOptions(vsOptions: vscode.FormattingOptions): FormatOptions {
+  const config = vscode.workspace.getConfiguration("safeJspFormatter");
+  return {
+    tabSize: vsOptions.tabSize,
+    insertSpaces: vsOptions.insertSpaces,
+    enableJavaFormatting: config.get<boolean>("enableJavaFormatting", true),
+    enableHtmlFormatting: config.get<boolean>("enableHtmlFormatting", true),
+    printWidth: config.get<number>("printWidth", 100),
+    htmlOptions: config.get<Record<string, unknown>>("htmlOptions", {}),
+  };
+}
 
 export function activate(context: vscode.ExtensionContext) {
   const version = packageJson.version;
@@ -27,7 +39,8 @@ export function activate(context: vscode.ExtensionContext) {
               document.positionAt(text.length),
             );
 
-            const formatted = await formatJsp(text, options);
+            const formatOptions = getFormatOptions(options);
+            const formatted = await formatJsp(text, formatOptions);
             return [vscode.TextEdit.replace(range, formatted)];
           } catch (err) {
             console.error("[Safe JSP Formatter] Error during formatting:", err);
@@ -54,7 +67,8 @@ export function activate(context: vscode.ExtensionContext) {
 
           try {
             const text = document.getText(range);
-            const formatted = await formatJsp(text, options);
+            const formatOptions = getFormatOptions(options);
+            const formatted = await formatJsp(text, formatOptions);
             return [vscode.TextEdit.replace(range, formatted)];
           } catch (err) {
             console.error(
